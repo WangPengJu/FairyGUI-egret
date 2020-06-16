@@ -7,6 +7,7 @@ module fgui {
         private _items: Array<PackageItem>;
         private _itemsById: any;
         private _itemsByName: any;
+        private _resKey: string;
         private _customId: string;
         private _sprites: any;
 
@@ -72,7 +73,8 @@ module fgui {
 
                 const asset = await RES.getResAsync(resKey);
                 pkg = new UIPackage();
-                pkg.loadPackage(new ByteBuffer(asset), resKey);
+                pkg._resKey = resKey;
+                pkg.loadPackage(new ByteBuffer(asset));
                 let cnt: number = pkg._items.length;
                 let urls = [];
                 for (var i: number = 0; i < cnt; i++) {
@@ -89,18 +91,17 @@ module fgui {
                         RES.createGroup(group, urls, true);
                         await RES.loadGroup(group);
                     }
-                    UIPackage._instById[pkg.id] = pkg;
-                    UIPackage._instByName[pkg.name] = pkg;
-                    UIPackage._instById[resKey] = pkg;
-
-                    resolve(pkg);
                 }
-                else
-                    resolve(pkg);
+
+                UIPackage._instById[pkg.id] = pkg;
+                UIPackage._instByName[pkg.name] = pkg;
+                UIPackage._instById[pkg._resKey] = pkg;
+
+                resolve(pkg);
             });
         }
 
-        public static addPackage(resKey: string, descData: ArrayBuffer = null): UIPackage {
+        public static addPackage(resKey: string, descData?: ArrayBuffer): UIPackage {
             if (!descData) {
                 descData = RES.getRes(resKey);
                 if (!descData)
@@ -108,24 +109,30 @@ module fgui {
             }
 
             var pkg: UIPackage = new UIPackage();
-            pkg.loadPackage(new ByteBuffer(descData), resKey);
+            pkg._resKey = resKey;
+            pkg.loadPackage(new ByteBuffer(descData));
             UIPackage._instById[pkg.id] = pkg;
             UIPackage._instByName[pkg.name] = pkg;
             UIPackage._instById[resKey] = pkg;
-            pkg.customId = resKey;
             return pkg;
         }
 
-        public static removePackage(packageId: string): void {
-            var pkg: UIPackage = UIPackage._instById[packageId];
+        public static removePackage(packageIdOrName: string): void {
+            var pkg: UIPackage = UIPackage._instById[packageIdOrName];
+            if (!pkg)
+                pkg = UIPackage._instByName[packageIdOrName];
+            if (!pkg)
+                throw new Error("unknown package: " + packageIdOrName);
+
             pkg.dispose();
             delete UIPackage._instById[pkg.id];
+            delete UIPackage._instByName[pkg.name];
+            delete UIPackage._instById[pkg._resKey];
             if (pkg._customId != null)
                 delete UIPackage._instById[pkg._customId];
-            delete UIPackage._instByName[pkg.name];
         }
 
-        public static createObject(pkgName: string, resName: string, userClass: any = null): GObject {
+        public static createObject(pkgName: string, resName: string, userClass?: any): GObject {
             var pkg: UIPackage = UIPackage.getByName(pkgName);
             if (pkg)
                 return pkg.createObject(resName, userClass);
@@ -133,7 +140,7 @@ module fgui {
                 return null;
         }
 
-        public static createObjectFromURL(url: string, userClass: any = null): GObject {
+        public static createObjectFromURL(url: string, userClass?: any): GObject {
             var pi: PackageItem = UIPackage.getItemByURL(url);
             if (pi)
                 return pi.owner.internalCreateObject(pi, userClass);
@@ -202,12 +209,11 @@ module fgui {
             TranslationHelper.loadFromXML(source);
         }
 
-        private loadPackage(buffer: ByteBuffer, resKey: string): void {
+        private loadPackage(buffer: ByteBuffer): void {
             if (buffer.readUnsignedInt() != 0x46475549)
-                throw "FairyGUI: old package format found in '" + resKey + "'";
+                throw "FairyGUI: old package format found in '" + this._resKey + "'";
 
             buffer.version = buffer.readInt();
-            var ver2: boolean = buffer.version >= 2;
             var compressed: boolean = buffer.readBool();
             this._id = buffer.readUTF();
             this._name = buffer.readUTF();
@@ -216,9 +222,12 @@ module fgui {
             if (compressed) {
                 var buf: Uint8Array = new Uint8Array(buffer.buffer, buffer.position, buffer.length - buffer.position);
                 var inflater: Zlib.RawInflate = new Zlib.RawInflate(buf);
-                buffer = new ByteBuffer(inflater.decompress());
+                let buffer2: ByteBuffer = new ByteBuffer(inflater.decompress());
+                buffer2.version = buffer.version;
+                buffer = buffer2;
             }
 
+            var ver2: boolean = buffer.version >= 2;
             var indexTablePos: number = buffer.position;
             var cnt: number;
             var i: number;
@@ -254,7 +263,7 @@ module fgui {
             buffer.seek(indexTablePos, 1);
 
             var pi: PackageItem;
-            resKey = resKey + "_";
+            var fileNamePrefix: string = this._resKey + "_";
 
             cnt = buffer.readShort();
             for (i = 0; i < cnt; i++) {
@@ -324,7 +333,7 @@ module fgui {
                     case PackageItemType.Sound:
                     case PackageItemType.Misc:
                         {
-                            pi.file = resKey + ToolSet.getFileName(pi.file);
+                            pi.file = fileNamePrefix + ToolSet.getFileName(pi.file);
                             break;
                         }
                 }
@@ -408,16 +417,12 @@ module fgui {
             var cnt: number = this._items.length;
             for (var i: number = 0; i < cnt; i++) {
                 var pi: PackageItem = this._items[i];
-                var texture: egret.Texture = pi.texture;
-                if (texture != null)
-                    texture.dispose();
-                else if (pi.frames != null) {
-                    var frameCount: number = pi.frames.length;
-                    for (var j: number = 0; j < frameCount; j++) {
-                        texture = pi.frames[j].texture;
-                        if (texture != null)
-                            texture.dispose();
-                    }
+                if (pi.type == PackageItemType.Atlas) {
+                    RES.destroyRes(pi.file, false);
+                }
+                else if (pi.type == PackageItemType.Sound) {
+                    //egret failed to do this
+                    //RES.destroyRes(pi.file, false);
                 }
             }
         }
@@ -442,7 +447,7 @@ module fgui {
                 UIPackage._instById[this._customId] = this;
         }
 
-        public createObject(resName: string, userClass: any = null): GObject {
+        public createObject(resName: string, userClass?: any): GObject {
             var pi: PackageItem = this._itemsByName[resName];
             if (pi)
                 return this.internalCreateObject(pi, userClass);
@@ -450,22 +455,13 @@ module fgui {
                 return null;
         }
 
-        public internalCreateObject(item: PackageItem, userClass: any = null): GObject {
-            var g: GObject;
-            if (item.type == PackageItemType.Component) {
-                if (userClass != null)
-                    g = new userClass();
-                else
-                    g = UIObjectFactory.newObject(item);
-            }
-            else
-                g = UIObjectFactory.newObject(item);
+        public internalCreateObject(item: PackageItem, userClass?: any): GObject {
+            var g: GObject = UIObjectFactory.newObject(item, userClass);
 
             if (g == null)
                 return null;
 
             UIPackage._constructing++;
-            g.packageItem = item;
             g.constructFromResource();
             UIPackage._constructing--;
             return g;
@@ -589,7 +585,7 @@ module fgui {
                     frame.texture.bitmapData = atlas.bitmapData;
                     frame.texture.$initData(atlas.$bitmapX + sprite.rect.x, atlas.$bitmapY + sprite.rect.y,
                         sprite.rect.width, sprite.rect.height,
-                        fx, fy, 
+                        fx, fy,
                         item.width, item.height,
                         atlas.$sourceWidth, atlas.$sourceHeight, sprite.rotated);
                 }
@@ -634,8 +630,8 @@ module fgui {
                 var img: string = buffer.readS();
                 var bx: number = buffer.readInt();
                 var by: number = buffer.readInt();
-                bg.offsetX = buffer.readInt();
-                bg.offsetY = buffer.readInt();
+                bg.x = buffer.readInt();
+                bg.y = buffer.readInt();
                 bg.width = buffer.readInt();
                 bg.height = buffer.readInt();
                 bg.advance = buffer.readInt();
@@ -651,10 +647,10 @@ module fgui {
                     bg.texture = new egret.Texture();
                     bg.texture.bitmapData = mainTexture.bitmapData;
                     bg.texture.$initData(mainTexture.$bitmapX + bx + mainSprite.rect.x, mainTexture.$bitmapY + by + mainSprite.rect.y,
-                        bg.width, bg.height, 
+                        bg.width, bg.height,
                         mainSprite.offset.x, mainSprite.offset.y,
                         mainSprite.originalSize.x, mainSprite.originalSize.y,
-                        mainTexture.$sourceWidth, mainTexture.$sourceHeight, 
+                        mainTexture.$sourceWidth, mainTexture.$sourceHeight,
                         mainSprite.rotated);
 
                     bg.lineHeight = lineHeight;
@@ -670,12 +666,13 @@ module fgui {
 
                     if (bg.advance == 0) {
                         if (xadvance == 0)
-                            bg.advance = bg.offsetX + bg.width;
+                            bg.advance = bg.x + bg.width;
                         else
+                        
                             bg.advance = xadvance;
                     }
 
-                    bg.lineHeight = bg.offsetY < 0 ? bg.height : (bg.offsetY + bg.height);
+                    bg.lineHeight = bg.y < 0 ? bg.height : (bg.y + bg.height);
                     if (bg.lineHeight < font.size)
                         bg.lineHeight = font.size;
                 }

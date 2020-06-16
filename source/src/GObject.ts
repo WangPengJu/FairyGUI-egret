@@ -955,6 +955,7 @@ module fgui {
             this._displayObject.touchEnabled = old.touchEnabled;
             this._displayObject.scaleX = old.scaleX;
             this._displayObject.scaleY = old.scaleY;
+            ToolSet.setColorFilter(this._displayObject, this._grayed);
 
             if (this._displayObject instanceof egret.DisplayObjectContainer)
                 (<egret.DisplayObjectContainer>this._displayObject).touchChildren = this._touchable;
@@ -1116,15 +1117,9 @@ module fgui {
                 this.blendMode = egret.BlendMode.ERASE;
 
             var filter: number = buffer.readByte();
-            if (filter == 1) {
-                var cm: ColorMatrix = new ColorMatrix();
-                cm.adjustBrightness(buffer.readFloat());
-                cm.adjustContrast(buffer.readFloat());
-                cm.adjustSaturation(buffer.readFloat());
-                cm.adjustHue(buffer.readFloat());
-                var cf: egret.ColorMatrixFilter = new egret.ColorMatrixFilter(cm.matrix);
-                this.filters = [cf];
-            }
+            if (filter == 1 && this._displayObject)
+                ToolSet.setColorFilter(this._displayObject,
+                    [buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat()]);
 
             var str: string = buffer.readS();
             if (str != null)

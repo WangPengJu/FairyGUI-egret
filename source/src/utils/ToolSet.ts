@@ -180,7 +180,8 @@ module fgui {
 
             var toApplyColor: any;
             var toApplyGray: boolean;
-            if (typeof (color) == "boolean") //gray
+            var tp: string = typeof (color);
+            if (tp == "boolean") //gray
             {
                 toApplyColor = filter ? (<any>filter).$_color_ : null;
                 toApplyGray = <boolean>color;
@@ -190,7 +191,7 @@ module fgui {
                 toApplyGray = filter ? (<any>filter).$_grayed_ : false;
             }
 
-            if ((!toApplyColor && toApplyColor!=0) && !toApplyGray) {
+            if ((!toApplyColor && toApplyColor != 0) && !toApplyGray) {
                 if (filters && filter) {
                     var i: number = filters.indexOf(filter);
                     if (i != -1) {
@@ -210,8 +211,11 @@ module fgui {
             }
             if (!filters)
                 filters = [filter];
-            else
-                filters.push(filter);
+            else {
+                let i: number = filters.indexOf(filter);
+                if (i == -1)
+                    filters.push(filter);
+            }
             obj.filters = filters;
 
             (<any>filter).$_color_ = toApplyColor;
@@ -224,7 +228,7 @@ module fgui {
                     mat[i] = ToolSet.grayScaleMatrix[i];
             }
             else if (toApplyColor instanceof Array) {
-                mat = ColorMatrix.getMatrix(toApplyColor[0], toApplyColor[1], toApplyColor[2], toApplyColor[3]);
+                ColorMatrix.getMatrix(toApplyColor[0], toApplyColor[1], toApplyColor[2], toApplyColor[3], mat);
             }
             else {
                 for (let i = 0; i < 20; i++) {
@@ -235,6 +239,7 @@ module fgui {
                 mat[6] = ((<number>color >> 8) & 0xFF) / 255;
                 mat[12] = (<number>color & 0xFF) / 255;
             }
+
             filter.matrix = mat;
         }
     }

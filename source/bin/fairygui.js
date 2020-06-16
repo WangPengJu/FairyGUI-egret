@@ -169,7 +169,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                 di = this._itemList[this._index];
                 if (di.packageItem != null) {
                     obj = fgui.UIObjectFactory.newObject(di.packageItem);
-                    obj.packageItem = di.packageItem;
                     this._objectPool.push(obj);
                     fgui.UIPackage._constructing++;
                     if (di.packageItem.type == fgui.PackageItemType.Component) {
@@ -1815,6 +1814,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             this._displayObject.touchEnabled = old.touchEnabled;
             this._displayObject.scaleX = old.scaleX;
             this._displayObject.scaleY = old.scaleY;
+            fgui.ToolSet.setColorFilter(this._displayObject, this._grayed);
             if (this._displayObject instanceof egret.DisplayObjectContainer)
                 this._displayObject.touchChildren = this._touchable;
         };
@@ -1953,15 +1953,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             else if (bm == 5)
                 this.blendMode = egret.BlendMode.ERASE;
             var filter = buffer.readByte();
-            if (filter == 1) {
-                var cm = new fgui.ColorMatrix();
-                cm.adjustBrightness(buffer.readFloat());
-                cm.adjustContrast(buffer.readFloat());
-                cm.adjustSaturation(buffer.readFloat());
-                cm.adjustHue(buffer.readFloat());
-                var cf = new egret.ColorMatrixFilter(cm.matrix);
-                this.filters = [cf];
-            }
+            if (filter == 1 && this._displayObject)
+                fgui.ToolSet.setColorFilter(this._displayObject, [buffer.readFloat(), buffer.readFloat(), buffer.readFloat(), buffer.readFloat()]);
             var str = buffer.readS();
             if (str != null)
                 this.data = str;
@@ -2929,9 +2922,10 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             this.constructFromResource2(null, 0);
         };
         GComponent.prototype.constructFromResource2 = function (objectPool, poolIndex) {
-            if (!this.packageItem.decoded) {
-                this.packageItem.decoded = true;
-                fgui.TranslationHelper.translateComponent(this.packageItem);
+            var contentItem = this.packageItem.getBranch();
+            if (!contentItem.decoded) {
+                contentItem.decoded = true;
+                fgui.TranslationHelper.translateComponent(contentItem);
             }
             var i;
             var dataLen;
@@ -2941,7 +2935,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             var f2;
             var i1;
             var i2;
-            var buffer = this.packageItem.rawData;
+            var buffer = contentItem.rawData;
             buffer.seek(0, 0);
             this._underConstruct = true;
             this.sourceWidth = buffer.readInt();
@@ -3008,12 +3002,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                         if (pkgId != null)
                             pkg = fgui.UIPackage.getById(pkgId);
                         else
-                            pkg = this.packageItem.owner;
+                            pkg = contentItem.owner;
                         pi = pkg != null ? pkg.getItemById(src) : null;
                     }
                     if (pi != null) {
                         child = fgui.UIObjectFactory.newObject(pi);
-                        child.packageItem = pi;
                         child.constructFromResource();
                     }
                     else
@@ -3058,7 +3051,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             i1 = buffer.readInt();
             i2 = buffer.readInt();
             if (hitTestId != null) {
-                pi = this.packageItem.owner.getItemById(hitTestId);
+                pi = contentItem.owner.getItemById(hitTestId);
                 if (pi != null && pi.pixelHitTestData != null)
                     this._rootContainer.hitArea = new fgui.PixelHitTest(pi.pixelHitTestData, i1, i2);
             }
@@ -3084,7 +3077,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             this._underConstruct = false;
             this.buildNativeDisplayList();
             this.setBoundsChangedFlag();
-            if (this.packageItem.objectType != fgui.ObjectType.Component)
+            if (contentItem.objectType != fgui.ObjectType.Component)
                 this.constructExtension(buffer);
             this.onConstruct();
         };
@@ -3795,7 +3788,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                 if (this._selectedIndex == val)
                     return;
                 this._selectedIndex = val;
-                if (this.selectedIndex >= 0 && this.selectedIndex < this._items.length) {
+                if (this._selectedIndex >= 0 && this._selectedIndex < this._items.length) {
                     this.text = this._items[this._selectedIndex];
                     if (this._icons != null && this._selectedIndex < this._icons.length)
                         this.icon = this._icons[this._selectedIndex];
@@ -4028,11 +4021,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         GComboBox.prototype.__clickItem2 = function (index) {
             if (this.dropdown.parent instanceof fgui.GRoot)
                 (this.dropdown.parent).hidePopup();
-            this._selectedIndex = index;
-            if (this._selectedIndex >= 0)
-                this.text = this._items[this._selectedIndex];
-            else
-                this.text = "";
+            this._selectedIndex = -1;
+            this.selectedIndex = index;
             this.dispatchEvent(new fgui.StateChangeEvent(fgui.StateChangeEvent.CHANGED));
         };
         GComboBox.prototype.__rollover = function (evt) {
@@ -4120,7 +4110,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         GGraph.prototype.drawRegularPolygon = function (lineSize, lineColor, lineAlpha, fillColor, fillAlpha, sides, startAngle, distances) {
             if (startAngle === void 0) { startAngle = 0; }
             if (distances === void 0) { distances = null; }
-            this._type = 3;
+            this._type = 4;
             this._lineSize = lineSize;
             this._lineColor = lineColor;
             this._lineAlpha = lineAlpha;
@@ -4132,7 +4122,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             this.updateGraph();
         };
         GGraph.prototype.drawPolygon = function (lineSize, lineColor, lineAlpha, fillColor, fillAlpha, points) {
-            this._type = 4;
+            this._type = 3;
             this._lineSize = lineSize;
             this._lineColor = lineColor;
             this._lineAlpha = lineAlpha;
@@ -4270,6 +4260,18 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             sprite.touchEnabled = true;
             this._graphics = sprite.graphics;
             this.setDisplayObject(sprite);
+        };
+        GGraph.prototype.getProp = function (index) {
+            if (index == fgui.ObjectPropID.Color)
+                return this.color;
+            else
+                return _super.prototype.getProp.call(this, index);
+        };
+        GGraph.prototype.setProp = function (index, value) {
+            if (index == fgui.ObjectPropID.Color)
+                this.color = value;
+            else
+                _super.prototype.setProp.call(this, index, value);
         };
         GGraph.prototype.handleSizeChanged = function () {
             _super.prototype.handleSizeChanged.call(this);
@@ -8627,8 +8629,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                             bm = new egret.Bitmap();
                             bm.smoothing = true;
                         }
-                        bm.x = charX + lineIndent + Math.ceil(glyph.offsetX * fontScale);
-                        bm.y = line.y + charIndent + Math.ceil(glyph.offsetY * fontScale);
+                        bm.x = charX + lineIndent + Math.ceil(glyph.x * fontScale);
+                        bm.y = line.y + charIndent + Math.ceil(glyph.y * fontScale);
                         bm["$backupY"] = bm.y;
                         bm.texture = glyph.texture;
                         bm.scaleX = fontScale;
@@ -9964,7 +9966,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             }
         };
         GTree.prototype.createCell = function (node) {
-            var child = this.getFromPool(node._resURL);
+            var child = this.getFromPool(node._resURL ? node._resURL : this.defaultItem);
             if (!child)
                 throw new Error("cannot create tree node object.");
             child._treeNode = node;
@@ -9984,7 +9986,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             if (node.isFolder)
                 child.addEventListener(egret.TouchEvent.TOUCH_BEGIN, this.__cellMouseDown, this);
             if (this.treeNodeRender)
-                this.treeNodeRender(node, child);
+                this.treeNodeRender.call(this.callbackThisObj, node, child);
         };
         GTree.prototype._afterInserted = function (node) {
             if (!node._cell)
@@ -9992,7 +9994,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             var index = this.getInsertIndexForNode(node);
             this.addChildAt(node._cell, index);
             if (this.treeNodeRender)
-                this.treeNodeRender(node, node._cell);
+                this.treeNodeRender.call(this.callbackThisObj, node, node._cell);
             if (node.isFolder && node.expanded)
                 this.checkChildren(node, index);
         };
@@ -10020,11 +10022,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                 return;
             }
             if (this.treeNodeWillExpand != null)
-                this.treeNodeWillExpand(node, true);
+                this.treeNodeWillExpand.call(this.callbackThisObj, node, true);
             if (node._cell == null)
                 return;
             if (this.treeNodeRender)
-                this.treeNodeRender(node, node._cell);
+                this.treeNodeRender.call(this.callbackThisObj, node, node._cell);
             var cc = node._cell.getController("expanded");
             if (cc)
                 cc.selectedIndex = 1;
@@ -10037,11 +10039,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                 return;
             }
             if (this.treeNodeWillExpand)
-                this.treeNodeWillExpand(node, false);
+                this.treeNodeWillExpand.call(this.callbackThisObj, node, false);
             if (node._cell == null)
                 return;
             if (this.treeNodeRender)
-                this.treeNodeRender(node, node._cell);
+                this.treeNodeRender.call(this.callbackThisObj, node, node._cell);
             var cc = node._cell.getController("expanded");
             if (cc)
                 cc.selectedIndex = 0;
@@ -10201,6 +10203,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
 (function (fgui) {
     var GTreeNode = (function () {
         function GTreeNode(hasChild, resURL) {
+            this._expanded = false;
             this._level = 0;
             this._resURL = resURL;
             if (hasChild)
@@ -10246,6 +10249,24 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                     return this._cell.text;
                 else
                     return null;
+            },
+            set: function (value) {
+                if (this._cell != null)
+                    this._cell.text = value;
+            },
+            enumerable: true,
+            configurable: true
+        });
+        Object.defineProperty(GTreeNode.prototype, "icon", {
+            get: function () {
+                if (this._cell != null)
+                    return this._cell.icon;
+                else
+                    return null;
+            },
+            set: function (value) {
+                if (this._cell != null)
+                    this._cell.icon = value;
             },
             enumerable: true,
             configurable: true
@@ -14172,6 +14193,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                                     buffer.skip(2);
                                 if ((value = compStrings[elementId + "-" + j + "-0"]) != null)
                                     buffer.writeS(value);
+                                else
+                                    buffer.skip(2);
                                 if (buffer.version >= 2) {
                                     buffer.skip(6);
                                     buffer.skip(buffer.readUnsignedShort() * 4);
@@ -14290,11 +14313,21 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             if (!pi.extensionType)
                 pi.extensionType = UIObjectFactory.extensions["ui://" + pi.owner.name + "/" + pi.name];
         };
-        UIObjectFactory.newObject = function (pi) {
-            if (pi.extensionType != null)
-                return new pi.extensionType();
+        UIObjectFactory.newObject = function (pi, userClass) {
+            var obj;
+            if (pi.type == fgui.PackageItemType.Component) {
+                if (userClass)
+                    obj = new userClass();
+                else if (pi.extensionType)
+                    obj = new pi.extensionType();
+                else
+                    obj = UIObjectFactory.newObject2(pi.objectType);
+            }
             else
-                return this.newObject2(pi.objectType);
+                obj = UIObjectFactory.newObject2(pi.objectType);
+            if (obj)
+                obj.packageItem = pi;
+            return obj;
         };
         UIObjectFactory.newObject2 = function (type) {
             switch (type) {
@@ -14402,7 +14435,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                                     case 1:
                                         asset = _a.sent();
                                         pkg = new UIPackage();
-                                        pkg.loadPackage(new fgui.ByteBuffer(asset), resKey);
+                                        pkg._resKey = resKey;
+                                        pkg.loadPackage(new fgui.ByteBuffer(asset));
                                         cnt = pkg._items.length;
                                         urls = [];
                                         for (i = 0; i < cnt; i++) {
@@ -14410,7 +14444,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                                             if (pi.type == fgui.PackageItemType.Atlas || pi.type == fgui.PackageItemType.Sound)
                                                 urls.push(pi.file);
                                         }
-                                        if (!(urls.length > 0)) return [3, 6];
+                                        if (!(urls.length > 0)) return [3, 5];
                                         if (!(urls.length == 1)) return [3, 3];
                                         return [4, RES.getResAsync(urls[0])];
                                     case 2:
@@ -14426,13 +14460,9 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                                     case 5:
                                         UIPackage._instById[pkg.id] = pkg;
                                         UIPackage._instByName[pkg.name] = pkg;
-                                        UIPackage._instById[resKey] = pkg;
+                                        UIPackage._instById[pkg._resKey] = pkg;
                                         resolve(pkg);
-                                        return [3, 7];
-                                    case 6:
-                                        resolve(pkg);
-                                        _a.label = 7;
-                                    case 7: return [2];
+                                        return [2];
                                 }
                             });
                         }); })];
@@ -14440,30 +14470,33 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             });
         };
         UIPackage.addPackage = function (resKey, descData) {
-            if (descData === void 0) { descData = null; }
             if (!descData) {
                 descData = RES.getRes(resKey);
                 if (!descData)
                     throw "Resource '" + resKey + "' not found, please check default.res.json!";
             }
             var pkg = new UIPackage();
-            pkg.loadPackage(new fgui.ByteBuffer(descData), resKey);
+            pkg._resKey = resKey;
+            pkg.loadPackage(new fgui.ByteBuffer(descData));
             UIPackage._instById[pkg.id] = pkg;
             UIPackage._instByName[pkg.name] = pkg;
             UIPackage._instById[resKey] = pkg;
-            pkg.customId = resKey;
             return pkg;
         };
-        UIPackage.removePackage = function (packageId) {
-            var pkg = UIPackage._instById[packageId];
+        UIPackage.removePackage = function (packageIdOrName) {
+            var pkg = UIPackage._instById[packageIdOrName];
+            if (!pkg)
+                pkg = UIPackage._instByName[packageIdOrName];
+            if (!pkg)
+                throw new Error("unknown package: " + packageIdOrName);
             pkg.dispose();
             delete UIPackage._instById[pkg.id];
+            delete UIPackage._instByName[pkg.name];
+            delete UIPackage._instById[pkg._resKey];
             if (pkg._customId != null)
                 delete UIPackage._instById[pkg._customId];
-            delete UIPackage._instByName[pkg.name];
         };
         UIPackage.createObject = function (pkgName, resName, userClass) {
-            if (userClass === void 0) { userClass = null; }
             var pkg = UIPackage.getByName(pkgName);
             if (pkg)
                 return pkg.createObject(resName, userClass);
@@ -14471,7 +14504,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                 return null;
         };
         UIPackage.createObjectFromURL = function (url, userClass) {
-            if (userClass === void 0) { userClass = null; }
             var pi = UIPackage.getItemByURL(url);
             if (pi)
                 return pi.owner.internalCreateObject(pi, userClass);
@@ -14528,11 +14560,10 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         UIPackage.setStringsSource = function (source) {
             fgui.TranslationHelper.loadFromXML(source);
         };
-        UIPackage.prototype.loadPackage = function (buffer, resKey) {
+        UIPackage.prototype.loadPackage = function (buffer) {
             if (buffer.readUnsignedInt() != 0x46475549)
-                throw "FairyGUI: old package format found in '" + resKey + "'";
+                throw "FairyGUI: old package format found in '" + this._resKey + "'";
             buffer.version = buffer.readInt();
-            var ver2 = buffer.version >= 2;
             var compressed = buffer.readBool();
             this._id = buffer.readUTF();
             this._name = buffer.readUTF();
@@ -14540,8 +14571,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             if (compressed) {
                 var buf = new Uint8Array(buffer.buffer, buffer.position, buffer.length - buffer.position);
                 var inflater = new Zlib.RawInflate(buf);
-                buffer = new fgui.ByteBuffer(inflater.decompress());
+                var buffer2 = new fgui.ByteBuffer(inflater.decompress());
+                buffer2.version = buffer.version;
+                buffer = buffer2;
             }
+            var ver2 = buffer.version >= 2;
             var indexTablePos = buffer.position;
             var cnt;
             var i;
@@ -14570,7 +14604,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             }
             buffer.seek(indexTablePos, 1);
             var pi;
-            resKey = resKey + "_";
+            var fileNamePrefix = this._resKey + "_";
             cnt = buffer.readShort();
             for (i = 0; i < cnt; i++) {
                 nextPos = buffer.readInt();
@@ -14630,7 +14664,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                     case fgui.PackageItemType.Sound:
                     case fgui.PackageItemType.Misc:
                         {
-                            pi.file = resKey + fgui.ToolSet.getFileName(pi.file);
+                            pi.file = fileNamePrefix + fgui.ToolSet.getFileName(pi.file);
                             break;
                         }
                 }
@@ -14700,16 +14734,10 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             var cnt = this._items.length;
             for (var i = 0; i < cnt; i++) {
                 var pi = this._items[i];
-                var texture = pi.texture;
-                if (texture != null)
-                    texture.dispose();
-                else if (pi.frames != null) {
-                    var frameCount = pi.frames.length;
-                    for (var j = 0; j < frameCount; j++) {
-                        texture = pi.frames[j].texture;
-                        if (texture != null)
-                            texture.dispose();
-                    }
+                if (pi.type == fgui.PackageItemType.Atlas) {
+                    RES.destroyRes(pi.file, false);
+                }
+                else if (pi.type == fgui.PackageItemType.Sound) {
                 }
             }
         };
@@ -14742,7 +14770,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             configurable: true
         });
         UIPackage.prototype.createObject = function (resName, userClass) {
-            if (userClass === void 0) { userClass = null; }
             var pi = this._itemsByName[resName];
             if (pi)
                 return this.internalCreateObject(pi, userClass);
@@ -14750,20 +14777,10 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                 return null;
         };
         UIPackage.prototype.internalCreateObject = function (item, userClass) {
-            if (userClass === void 0) { userClass = null; }
-            var g;
-            if (item.type == fgui.PackageItemType.Component) {
-                if (userClass != null)
-                    g = new userClass();
-                else
-                    g = fgui.UIObjectFactory.newObject(item);
-            }
-            else
-                g = fgui.UIObjectFactory.newObject(item);
+            var g = fgui.UIObjectFactory.newObject(item, userClass);
             if (g == null)
                 return null;
             UIPackage._constructing++;
-            g.packageItem = item;
             g.constructFromResource();
             UIPackage._constructing--;
             return g;
@@ -14894,8 +14911,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                 var img = buffer.readS();
                 var bx = buffer.readInt();
                 var by = buffer.readInt();
-                bg.offsetX = buffer.readInt();
-                bg.offsetY = buffer.readInt();
+                bg.x = buffer.readInt();
+                bg.y = buffer.readInt();
                 bg.width = buffer.readInt();
                 bg.height = buffer.readInt();
                 bg.advance = buffer.readInt();
@@ -14922,11 +14939,11 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                     }
                     if (bg.advance == 0) {
                         if (xadvance == 0)
-                            bg.advance = bg.offsetX + bg.width;
+                            bg.advance = bg.x + bg.width;
                         else
                             bg.advance = xadvance;
                     }
-                    bg.lineHeight = bg.offsetY < 0 ? bg.height : (bg.offsetY + bg.height);
+                    bg.lineHeight = bg.y < 0 ? bg.height : (bg.y + bg.height);
                     if (bg.lineHeight < font.size)
                         bg.lineHeight = font.size;
                 }
@@ -15358,8 +15375,6 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
         function BMGlyph() {
             this.x = 0;
             this.y = 0;
-            this.offsetX = 0;
-            this.offsetY = 0;
             this.width = 0;
             this.height = 0;
             this.advance = 0;
@@ -16110,6 +16125,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             configurable: true
         });
         UIContainer.prototype.$hitTest = function (stageX, stageY) {
+            if (!this.$visible)
+                return null;
             if (this._hitArea) {
                 if (!this.touchEnabled)
                     return null;
@@ -18213,6 +18230,7 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             var ba = new ByteBuffer(new Uint8Array(this.buffer, this.position, count));
             ba.stringTable = this.stringTable;
             ba.version = this.version;
+            this.position += count;
             return ba;
         };
         ByteBuffer.prototype.seek = function (indexTablePos, blockIndex) {
@@ -18284,10 +18302,10 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
                 0, 0, 0, 1, 0]);
         };
         ColorMatrix.prototype.adjustColor = function (p_brightness, p_contrast, p_saturation, p_hue) {
-            this.adjustHue(p_hue);
-            this.adjustContrast(p_contrast);
             this.adjustBrightness(p_brightness);
+            this.adjustContrast(p_contrast);
             this.adjustSaturation(p_saturation);
+            this.adjustHue(p_hue);
         };
         ColorMatrix.prototype.adjustBrightness = function (p_val) {
             p_val = this.cleanValue(p_val, 1) * 255;
@@ -18831,7 +18849,8 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             var filters = obj.filters;
             var toApplyColor;
             var toApplyGray;
-            if (typeof (color) == "boolean") {
+            var tp = typeof (color);
+            if (tp == "boolean") {
                 toApplyColor = filter ? filter.$_color_ : null;
                 toApplyGray = color;
             }
@@ -18858,22 +18877,25 @@ var __generator = (this && this.__generator) || function (thisArg, body) {
             }
             if (!filters)
                 filters = [filter];
-            else
-                filters.push(filter);
+            else {
+                var i_1 = filters.indexOf(filter);
+                if (i_1 == -1)
+                    filters.push(filter);
+            }
             obj.filters = filters;
             filter.$_color_ = toApplyColor;
             filter.$_grayed_ = toApplyGray;
             var mat = filter.matrix;
             if (toApplyGray) {
-                for (var i_1 = 0; i_1 < 20; i_1++)
-                    mat[i_1] = ToolSet.grayScaleMatrix[i_1];
+                for (var i_2 = 0; i_2 < 20; i_2++)
+                    mat[i_2] = ToolSet.grayScaleMatrix[i_2];
             }
             else if (toApplyColor instanceof Array) {
-                mat = fgui.ColorMatrix.getMatrix(toApplyColor[0], toApplyColor[1], toApplyColor[2], toApplyColor[3]);
+                fgui.ColorMatrix.getMatrix(toApplyColor[0], toApplyColor[1], toApplyColor[2], toApplyColor[3], mat);
             }
             else {
-                for (var i_2 = 0; i_2 < 20; i_2++) {
-                    mat[i_2] = (i_2 == 0 || i_2 == 6 || i_2 == 12 || i_2 == 18) ? 1 : 0;
+                for (var i_3 = 0; i_3 < 20; i_3++) {
+                    mat[i_3] = (i_3 == 0 || i_3 == 6 || i_3 == 12 || i_3 == 18) ? 1 : 0;
                 }
                 mat[0] = ((color >> 16) & 0xFF) / 255;
                 mat[6] = ((color >> 8) & 0xFF) / 255;
